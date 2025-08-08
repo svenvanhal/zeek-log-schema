@@ -311,7 +311,6 @@ class ZeekScriptParser:
         id_node, _, attr_array = expr_list.children
 
         if len(attr_array.children) != 3:
-            print(self.text(attr_array.children))
             # This should only happen for the "Management::LOG" stream, for which the Zeek authors write:
             #   "Defining the stream outside of the stream creation call sidesteps the coverage.find-bro-logs test"
             # So it seems we should not try to find it anyway.
