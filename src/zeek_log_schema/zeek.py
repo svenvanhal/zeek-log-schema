@@ -102,7 +102,7 @@ class ZeekScriptParser:
                 # Log stream creation (due to the predicate provided to traverse(), which only selects those (expr ..) nodes)
                 case 'expr':
 
-                    if parsed_stream := self._parse_log_stream_creation(node, current_namespace):
+                    if parsed_stream := self._parse_log_create_stream(node, current_namespace):
                         streams.append(parsed_stream)
 
                     continue
@@ -291,10 +291,11 @@ class ZeekScriptParser:
         else:
             return type_name, type_type
 
-    def _parse_log_stream_creation(self, node: Node, namespace: str = 'global') -> LogStream | None:
+    def _parse_log_create_stream(self, node: Node, namespace: str = 'global') -> LogStream | None:
         """
         Parse a Log::create_stream() declaration.
-        For example, `Log::create_stream(X509::LOG, [$columns=Info, $ev=log_x509, $path="x509", $policy=log_policy]);`
+          - before Zeek 8.0: `Log::create_stream(X509::LOG, [$columns=Info, $ev=log_x509, $path="x509", $policy=log_policy]);`
+          - since Zeek 8.0:  `Log::create_stream(X509::LOG, Log::Stream([$columns=Info, $ev=log_x509, $path="x509", $policy=log_policy]));`
 
         :param node: (expr ...) node of the Log::create_stream statement
         :param namespace: current namespace
@@ -308,21 +309,23 @@ class ZeekScriptParser:
             raise ParseError("Could not parse Log::create_stream() statement: (expr_list ...) does not have exactly three children.")
 
         # Ignore, just assume we end up with the node that contains the array of create_stream attributes
-        id_node, _, attr_array = expr_list.children
+        id_node, _, stream_definition = expr_list.children
 
-        if len(attr_array.children) != 3:
+        if len(stream_definition.children) not in (3, 4):
             # This should only happen for the "Management::LOG" stream, for which the Zeek authors write:
             #   "Defining the stream outside of the stream creation call sidesteps the coverage.find-bro-logs test"
             # So it seems we should not try to find it anyway.
             print(f"Could not parse '{self.text(node)}' statement: could not find required attribute definitions ($columns, $path).", file=sys.stderr)
             return None
 
-        _, attr_array, _ = attr_array.children
-
+        # stream_definition.children:
+        #   >=8.0: ['Log::Stream', '(', '$columns=Info, $ev=log_pe, $path="pe", $policy=log_policy', ')']
+        #   <8.0:  ['[', '$columns=Info, $ev=log_pe, $path="pe", $policy=log_policy', ']']
+        stream_info = stream_definition.children[-2]
         stream_id = normalize_identifier_with_namespace(self.text(id_node), namespace)
         stream_attr = {}
 
-        for attr_node in attr_array.children:
+        for attr_node in stream_info.children:
             if attr_node.name() == 'expr':
                 attr_name, attr_value = self.text(attr_node).split('=', maxsplit=1)
                 stream_attr[attr_name.strip().lstrip('$')] = attr_value.strip(' "')
@@ -498,6 +501,7 @@ def process_zeek_source(files: Iterable[Path | MemoryFile] | Generator[Path | Me
         'global::layer3_proto': 'enum',
         'global::link_encap': 'enum',
         'global::rpc_status': 'enum',
+        'redis::rediscommand': 'enum',
     }
 
     stream_definitions: list[LogStream] = []
@@ -636,7 +640,8 @@ if __name__ == "__main__":
     # Smoke test
 
     # Path to Zeek source code to analyze
-    base_path = Path('../zeek/6.0/scripts/')
+    # $ git clone https://github.com/zeek/zeek.git /tmp/zeek
+    base_path = Path('/tmp/zeek')
 
     # Analyze (look for .bro or .zeek files)
     result = process_zeek_source(
