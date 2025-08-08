@@ -24,16 +24,16 @@ The app will now display the schema for each log stream, or only show changed sc
 
 <table><tr>
     <td width="33.33%">
-        <img width="100%" src="./readme_files/streamlit_example_output_streams_added.png"><br>
-        <b>Output stream (log file) updates</b>
+        <img width="100%" alt="Image showing output stream updates" src="./readme_files/streamlit_example_output_streams_added.png"><br>
+        <b>Output stream updates</b>
     </td>
     <td width="33.33%">
-        <img width="100%" src="./readme_files/streamlit_example_schemas_changed.png"><br>
-        <b>Select output stream to show diff</b>
+        <img width="100%" alt="Image showing schema inspection and changes" src="./readme_files/streamlit_example_schemas_changed.png"><br>
+        <b>Inspect schema and changes</b>
     </td>
     <td width="33.33%">
-        <img width="100%" src="./readme_files/streamlit_example_added_fields.png"><br>
-        <b>Field updates highlighted</b>
+        <img width="100%" alt="Image showing field name, type and location diff" src="./readme_files/streamlit_example_added_fields.png"><br>
+        <b>Diff: name, type and location</b>
     </td>
 </tr></table>
 
