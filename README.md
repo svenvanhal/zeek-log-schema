@@ -28,7 +28,7 @@ The app will now display the schema for each log stream, including changes betwe
     </td>
     <td width="33.33%">
         <img width="100%" alt="Image showing schema inspection and changes" src="./readme_files/streamlit_example_schemas_changed.png"><br>
-        <b>Schema for every output stream</b>
+        <b>Schema per output stream</b>
     </td>
     <td width="33.33%">
         <img width="100%" alt="Image showing field name, type and location diff" src="./readme_files/streamlit_example_added_fields.png"><br>
