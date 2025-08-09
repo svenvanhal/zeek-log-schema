@@ -15,25 +15,24 @@ uv run -- streamlit run app/app.py
 
 The app should open automatically. If not, try http://localhost:8501 or follow the instructions in the `streamlit` command output.
 
-Select two Zeek versions to compare and optionally provide other `.bro` or `.zeek` files to analyze, for example, custom plugins. Hit `Compare >` and wait for the analyzer to finish, which can take up
-to 30 seconds.
+Select two Zeek versions to compare and optionally select some [Zeek packages](https://packages.zeek.org/) or provide your own custom script files to analyze. Hit `Compare >` and wait for the analyzer to finish, which may take around 20 seconds.
 
-![Zeek Schema Comparison](./readme_files/demo_streamlit_input_form.png)
+![Zeek Schema Comparison](./readme_files/streamlit_input_form.png)
 
-The app will now display the schema for each log stream, or only show changed schemas. 
+The app will now display the schema for each log stream, including changes between the selected versions. 
 
 <table><tr>
     <td width="33.33%">
         <img width="100%" alt="Image showing output stream updates" src="./readme_files/streamlit_example_output_streams_added.png"><br>
-        <b>Output stream updates</b>
+        <b>New output streams (log files)</b>
     </td>
     <td width="33.33%">
         <img width="100%" alt="Image showing schema inspection and changes" src="./readme_files/streamlit_example_schemas_changed.png"><br>
-        <b>Inspect schema and changes</b>
+        <b>Schema for every output stream</b>
     </td>
     <td width="33.33%">
         <img width="100%" alt="Image showing field name, type and location diff" src="./readme_files/streamlit_example_added_fields.png"><br>
-        <b>Diff: name, type and location</b>
+        <b>Changes highlighted</b>
     </td>
 </tr></table>
 
@@ -44,7 +43,7 @@ Minimal example:
 ```python
 from pathlib import Path
 
-from zeek_log_schema.zeek import process_zeek_source
+from zeek_log_schema import process_zeek_source
 
 # Path to Zeek source code to analyze, for example:
 # $ git clone https://github.com/zeek/zeek.git /tmp/zeek
