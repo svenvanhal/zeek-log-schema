@@ -19,20 +19,21 @@ class ZeekScriptParser:
         if isinstance(input_file, MemoryFile):
             path = input_file.path
             source = input_file.contents
+            self.file = path
         else:
             path = input_file
             source = input_file
 
-        full_path = str(path.absolute().with_suffix(''))
+            full_path = str(path.absolute().with_suffix(''))
 
-        if relative_to_scripts and 'scripts/' in full_path:
-            # Find the path relative to 'scripts/'
-            # Also strip extension to allow Bro / Zeek comparisons
-            _, relative_path = full_path.rsplit('scripts/', maxsplit=1)
-            self.file = f"scripts/{relative_path}"
+            if relative_to_scripts and 'scripts/' in full_path:
+                # Find the path relative to 'scripts/'
+                # Also strip extension to allow Bro / Zeek comparisons
+                _, relative_path = full_path.rsplit('scripts/', maxsplit=1)
+                self.file = f"scripts/{relative_path}"
 
-        else:
-            self.file = full_path
+            else:
+                self.file = full_path
 
         # Parse ZeekScript file (build TreeSitter tree)
         self.script: Script = ZeekScriptParser.read_zeekscript(source)
