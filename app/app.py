@@ -4,6 +4,7 @@ import sys
 # N.B. This line must appear before any imports from zeek_log_schema
 sys.path.extend('../')
 
+import tempfile
 from io import BytesIO
 from zipfile import ZipFile
 from itertools import chain
@@ -16,12 +17,10 @@ import streamlit as st
 from git import Repo
 from packaging import version
 
-from zeek_log_schema import MemoryFile
-from zeek_log_schema.zeek import process_zeek_source, ParseError, RecordDeclaration
+from zeek_log_schema import MemoryFile, ParseError, RecordDeclaration, process_zeek_source
 
 ZEEK_REPO_URL = r"https://github.com/zeek/zeek.git"
-
-TMP_WORKING_DIR = Path('/tmp/zeek-schema-comparison-tool-streamlit')
+TMP_WORKING_DIR = Path(tempfile.gettempdir()) / 'zeek-schema-comparison-tool-streamlit'
 
 st.set_page_config(layout="wide")
 

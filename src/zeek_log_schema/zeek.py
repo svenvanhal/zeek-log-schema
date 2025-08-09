@@ -9,7 +9,7 @@ from typing import Generator, Iterable
 from zeekscript import Script
 from zeekscript.node import Node
 
-from zeek_log_schema import RecordDeclaration, ParseError, Field, LogStream, LazyIdentifier, MemoryFile
+from zeek_log_schema.models import Field, LazyIdentifier, LogStream, MemoryFile, ParseError, RecordDeclaration
 from zeek_log_schema.util import first_child_with_name, normalize_identifier_with_namespace
 
 
