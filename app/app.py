@@ -462,7 +462,7 @@ def main():
 
     with col_center:
 
-        st.header("Compare Zeek Log Schemas")
+        st.header("Compare Zeek Schemas")
         st.write("Static ZeekScript source code analyzer. Determines which log streams are exported and generates their schemas. Compare two versions to highlight changes.")
 
         with st.spinner("Checking out Zeek repository..."):
