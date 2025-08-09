@@ -9,7 +9,7 @@ from typing import Generator, Iterable
 from zeekscript import Script
 from zeekscript.node import Node
 
-from zeek_log_schema import RecordDeclaration, ParseError, Field, LogStream, LazyIdentifier, MemoryFile
+from zeek_log_schema.models import Field, LazyIdentifier, LogStream, MemoryFile, ParseError, RecordDeclaration
 from zeek_log_schema.util import first_child_with_name, normalize_identifier_with_namespace
 
 
@@ -19,20 +19,21 @@ class ZeekScriptParser:
         if isinstance(input_file, MemoryFile):
             path = input_file.path
             source = input_file.contents
+            self.file = path
         else:
             path = input_file
             source = input_file
 
-        full_path = str(path.absolute().with_suffix(''))
+            full_path = str(path.absolute().with_suffix(''))
 
-        if relative_to_scripts and 'scripts/' in full_path:
-            # Find the path relative to 'scripts/'
-            # Also strip extension to allow Bro / Zeek comparisons
-            _, relative_path = full_path.rsplit('scripts/', maxsplit=1)
-            self.file = f"scripts/{relative_path}"
+            if relative_to_scripts and 'scripts/' in full_path:
+                # Find the path relative to 'scripts/'
+                # Also strip extension to allow Bro / Zeek comparisons
+                _, relative_path = full_path.rsplit('scripts/', maxsplit=1)
+                self.file = f"scripts/{relative_path}"
 
-        else:
-            self.file = full_path
+            else:
+                self.file = full_path
 
         # Parse ZeekScript file (build TreeSitter tree)
         self.script: Script = ZeekScriptParser.read_zeekscript(source)

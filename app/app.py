@@ -4,24 +4,23 @@ import sys
 # N.B. This line must appear before any imports from zeek_log_schema
 sys.path.extend('../')
 
+import shutil
+import tempfile
 from io import BytesIO
-from zipfile import ZipFile
 from itertools import chain
-
-from streamlit.runtime.uploaded_file_manager import UploadedFile
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 import streamlit as st
-from git import Repo
+from git import GitCommandError, Repo
 from packaging import version
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-from zeek_log_schema import MemoryFile
-from zeek_log_schema.zeek import process_zeek_source, ParseError, RecordDeclaration
+from zeek_log_schema import MemoryFile, ParseError, RecordDeclaration, build_package_index, process_zeek_source
 
 ZEEK_REPO_URL = r"https://github.com/zeek/zeek.git"
-
-TMP_WORKING_DIR = Path('/tmp/zeek-schema-comparison-tool-streamlit')
+TMP_WORKING_DIR = Path(tempfile.gettempdir()) / 'zeek-schema-comparison-tool-streamlit'
 
 st.set_page_config(layout="wide")
 
@@ -35,16 +34,36 @@ def field_comparison_subset(f, compare_fields=None):
     return tuple(subset)
 
 
-@st.cache_data(show_spinner=False, )
+@st.cache_data(show_spinner=False)
 def analyze_source(_repo: Repo, input_data: dict) -> Any:
-    # Checkout repository at tag
-    _repo.git.checkout(input_data['tag'], force=True)
+    # Clean up before checking out new files
+    clean_repo(_repo)
+
+    try:
+        # Checkout .zeek and .bro files in repository, at specified tag
+        _repo.git.checkout(input_data['tag'], '--', "scripts/**/*.bro", "scripts/**/*.zeek", force=True)
+    except GitCommandError:
+        try:
+            # If no .bro files found (very understandable nowadays), just look for .zeek files
+            _repo.git.checkout(input_data['tag'], '--', "scripts/**/*.zeek", force=True)
+        except GitCommandError:
+            # You are looking at an ancient version!
+            _repo.git.checkout(input_data['tag'], '--', "scripts/**/*.bro", force=True)
 
     # Determine script extension based on version
     ext = get_name_for_version(input_data['tag']).lower()
 
+    custom_scripts: list[list[MemoryFile]] = []
+
+    # Load packages
+    for zkg_repo, package_name in input_data.get('packages', []):
+        custom_scripts.append(get_package_scripts(zkg_repo, package_name))
+
     # Unzip custom scripts
-    custom_scripts = [_extract_uploaded_file(uf) for uf in input_data.get('custom_scripts', None)]
+    custom_scripts.extend([
+        _extract_uploaded_file(uf)
+        for uf in input_data.get('custom_scripts', [])
+    ])
 
     # Run analysis
     zeek_script_files = list((TMP_WORKING_DIR / 'scripts/').glob(f"**/*.{ext}"))
@@ -54,8 +73,59 @@ def analyze_source(_repo: Repo, input_data: dict) -> Any:
     return result
 
 
+def clean_repo(repo: Repo):
+    git_dir = Path(repo.git_dir)
+    for item in Path(repo.working_dir).iterdir():
+        if item == git_dir:  continue
+
+        # Remove files and directory (except .git)
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+
 def get_name_for_version(v: str) -> str:
     return 'Bro' if version.parse(v) < version.parse('v3.0.0') else 'Zeek'
+
+
+def get_package_scripts(url: str, package_name: str = None) -> list[MemoryFile]:
+    package_scripts = []
+
+    with tempfile.TemporaryDirectory() as td:
+        temp_dir = Path(td)
+
+        # Clone repo and checkout zkg.meta
+        repo = Repo.clone_from(url, td, depth=1, no_checkout=True)
+        repo.git.checkout('origin/HEAD', '--', 'zkg.meta')
+
+        if not (zkg_meta := (temp_dir / 'zkg.meta')).exists():
+            raise ValueError("No zkg.meta found?")
+
+        # Find script dir
+        script_dir = None
+        with zkg_meta.open('r') as f:
+            for line in f.readlines():
+                if line.startswith("script_dir = "):
+                    script_dir = line.removeprefix("script_dir = ").strip()
+                    break
+
+        # Checkout script dir
+        # If no script dir provided, just checkout the entire repo
+        repo.git.checkout('origin/HEAD', '--', script_dir or '.')
+
+        # Find .bro and .zeek files and create MemoryFiles
+        script_dir_path = temp_dir / (script_dir or '.')
+
+        for script_file in chain(script_dir_path.glob("**/*.zeek"), script_dir_path.glob("**/*.bro")):
+            with script_file.open('rb') as f:
+                fake_script_source = url.removeprefix('https://').removeprefix('http://') if url else 'unnamed_package'
+                fake_filepath = Path(f"{fake_script_source}/{script_file.relative_to(script_dir_path).with_suffix('')}")
+
+                # Store file contents into BytesIO
+                package_scripts.append(MemoryFile(fake_filepath, BytesIO(f.read())))
+
+    return package_scripts
 
 
 def _generate_report__overview(old, new, changes) -> None:
@@ -331,7 +401,7 @@ def _extract_uploaded_file(uploaded_file: UploadedFile) -> list[MemoryFile]:
     file_bytes = BytesIO(uploaded_file.getvalue())
 
     with ZipFile(file_bytes) as zip_file:
-        return [MemoryFile(Path(f"scripts/_custom/{name.removeprefix(zip_name + '/')}"), BytesIO(zip_file.read(name))) for name in zip_file.namelist()]
+        return [MemoryFile(Path(f"custom_scripts/{name.removeprefix(zip_name + '/')}"), BytesIO(zip_file.read(name))) for name in zip_file.namelist()]
 
 
 def generate_report(repo: Repo, old: dict, new: dict, compare_fields: dict = None) -> None:
@@ -348,7 +418,10 @@ def generate_report(repo: Repo, old: dict, new: dict, compare_fields: dict = Non
                 analysis.append((meta, analyze_source(repo, data)))
             except ParseError as e:
                 st.error(
-                    f'**Error:** could not parse source files for {get_name_for_version(meta["version"])} {meta["version"]}. This usually happens for older source files, which use a now no longer supported ZeekScript syntax.')
+                    f'**Error:** could not parse source files for {get_name_for_version(meta["version"])} {meta["version"]}."'
+                    f'This usually happens for malformed Zeek packages, or older source files that use a no longer supported ZeekScript syntax.'
+                )
+
                 with st.expander("Strack trace:"):
                     st.exception(e)
                 return
@@ -376,6 +449,11 @@ def generate_report(repo: Repo, old: dict, new: dict, compare_fields: dict = Non
     #     st.write(result_new)
 
 
+@st.cache_data(show_spinner=False)
+def build_zkg_index(*args, **kwargs):
+    return build_package_index(*args, **kwargs)
+
+
 def main():
     # Prep working directory
     TMP_WORKING_DIR.mkdir(exist_ok=True)
@@ -384,37 +462,53 @@ def main():
 
     with col_center:
 
-        st.header("Zeek Schema Comparison")
+        st.header("Compare Zeek Schemas")
         st.write("Static ZeekScript source code analyzer. Determines which log streams are exported and generates their schemas. Compare two versions to highlight changes.")
 
-        with st.spinner("Setting things up..."):
+        with st.spinner("Checking out Zeek repository..."):
             # Clone repository if not already done
             if TMP_WORKING_DIR.is_dir() and len(list(TMP_WORKING_DIR.glob("*"))) > 0:
                 repo: Repo = Repo(TMP_WORKING_DIR)
             else:
-                repo: Repo = Repo.clone_from(ZEEK_REPO_URL, TMP_WORKING_DIR)
+                repo: Repo = Repo.clone_from(ZEEK_REPO_URL, TMP_WORKING_DIR, depth=1, no_checkout=True)
 
-            # Get list of unique versions
-            zeek_versions_set = {t.name for t in repo.tags}
-            zeek_versions = sorted(zeek_versions_set, reverse=True)
+            # Explicitly fetch tags (because of the no-checkout clone)
+            repo.git.fetch('--tags')
+
+        # Build package index
+        with st.spinner("Building package index..."):
+            zkg_index = build_zkg_index()
+
+        # Get list of unique Zeek versions
+        zeek_versions_set = {t.name for t in repo.tags}
+        zeek_versions = sorted(zeek_versions_set, reverse=True)
+
+        if 'form_submitted' not in st.session_state:
+            st.session_state.form_submitted = False
 
         with st.form("version_select_form"):
 
             compare_fields = {}
 
+            # TODO: add toggle to hide prerelease versions
+
             version_select_left, version_select_right = st.columns([1, 1])
             with version_select_left:
-                v_old = st.selectbox("Select versions to compare", options=zeek_versions, key="zeek_version_old", index=zeek_versions.index('v6.0.4'))
-                custom_scripts_old = st.file_uploader("Add custom scripts (optional)", type=['zip'], accept_multiple_files=True, key="custom_scripts_old")
+                v_old = st.selectbox("Versions to compare", options=zeek_versions, key="zeek_version_old", index=zeek_versions.index('v7.0.0'))
+                zkg_selected_old = st.multiselect("Additional packages (optional)", options=list(zkg_index.keys()), key="zkg_selected_old")
+                custom_scripts_old = st.file_uploader("Custom scripts (optional)", type=['zip'], accept_multiple_files=True, key="custom_scripts_old")
 
             with version_select_right:
-                v_new = st.selectbox("New", label_visibility='hidden', options=zeek_versions, key="zeek_version_new", index=zeek_versions.index('v7.1.0'))
-                custom_scripts_new = st.file_uploader("Add custom scripts (optional)", label_visibility="hidden", type=['zip'], accept_multiple_files=True, key="custom_scripts_new")
+                v_new = st.selectbox("New", label_visibility='hidden', options=zeek_versions, key="zeek_version_new", index=zeek_versions.index('v7.2.0'))
+                zkg_selected_new = st.multiselect("Additional packages (optional)", label_visibility="hidden", options=list(zkg_index.keys()), key="zkg_selected_new")
+                custom_scripts_new = st.file_uploader("Custom scripts (optional)", label_visibility="hidden", type=['zip'], accept_multiple_files=True, key="custom_scripts_new")
 
             _, c2, _ = st.columns([2, 3, 2])
             with c2:
-                compare_fields['meta.filename'] = st.checkbox("Also highlight fields whose source file has changed", value=True)
-                submitted = st.form_submit_button("Compare &rsaquo;", use_container_width=True)
+                compare_fields['meta.filename'] = st.checkbox("Also check for source file changes", value=True)
+
+                if st.form_submit_button("Compare &rsaquo;", use_container_width=True):
+                    st.session_state.form_submitted = True
 
             # st.markdown("<style>.stCheckbox {margin-top: -7px;margin-bottom: -7px;}</style>", unsafe_allow_html=True)
 
@@ -422,19 +516,19 @@ def main():
         st.error("Bro releases prior to **v2.6.0** are unsupported.", icon="😕")
         return
 
-    # submitted = True
-
     old = {
         'tag': v_old,
+        'packages': [(zkg_index[package_name], package_name) for package_name in zkg_selected_old],
         'custom_scripts': custom_scripts_old
     }
 
     new = {
         'tag': v_new,
+        'packages': [(zkg_index[package_name], package_name) for package_name in zkg_selected_new],
         'custom_scripts': custom_scripts_new
     }
 
-    if submitted:
+    if st.session_state.form_submitted:
         st.markdown("<br><br>", unsafe_allow_html=True)
         generate_report(repo, old, new, compare_fields)
 
