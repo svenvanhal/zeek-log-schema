@@ -465,7 +465,7 @@ def main():
         st.header("Compare Zeek Schemas")
         st.write("Static ZeekScript source code analyzer. Determines which log streams are exported and generates their schemas. Compare two versions to highlight changes.")
 
-        with st.spinner("Checking out Zeek repository..."):
+        with st.spinner("Checking out Zeek repository... (this may take some time)"):
             # Clone repository if not already done
             if TMP_WORKING_DIR.is_dir() and len(list(TMP_WORKING_DIR.glob("*"))) > 0:
                 repo: Repo = Repo(TMP_WORKING_DIR)
