@@ -321,7 +321,7 @@ class ZeekScriptParser:
 
         # stream_definition.children:
         #   >=8.0: ['Log::Stream', '(', '$columns=Info, $ev=log_pe, $path="pe", $policy=log_policy', ')']
-        #   <8.0:  ['[', '$columns=Info, $ev=log_pe, $path="pe", $policy=log_policy', ']']
+        #   < 8.0: ['[', '$columns=Info, $ev=log_pe, $path="pe", $policy=log_policy', ']']
         stream_info = stream_definition.children[-2]
         stream_id = normalize_identifier_with_namespace(self.text(id_node), namespace)
         stream_attr = {}
@@ -439,6 +439,10 @@ class ZeekScriptParser:
                 pass
             elif _error[0].startswith('@deprecated="Remove in 3.1.  to_json is now always available as a built-in function."'):
                 # Another irrelevant error in 3.0/scripts/base/utils/json.zeek (repeat offender)
+                pass
+            elif (_error[0].startswith('event ssl_server_hello(c: connection, version: count, record_version: count, possible_ts: time')
+                  or _error[0].startswith('event ssl_client_hello(c: connection, version: count, record_version: count, possible_ts: time')):
+                # SalesForce JA3 plugin uses a version check with @if statements that causes this error, which we handle later on.
                 pass
             else:  # Raise on others
                 raise ParseError(f"Script \"{path_or_buffer}\" has error: \"{_error}\"")
