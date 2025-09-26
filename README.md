@@ -2,18 +2,23 @@
 
 Static ZeekScript source code analyzer that generates schemas for log streams. Streamlit app included to compare Zeek versions and highlight the differences.
 
-## Usage
+## Usage - Streamlit
+Clone this repository and run the Streamlit app – from the repository root – using either Docker or `uv`.
 
-### Streamlit app
-
-Clone this repository and run the Streamlit app with `uv` from the repository root.
-
+#### Docker
 ```shell
-cd /path/to/zeek-log-schema
-uv run -- streamlit run app/app.py
+docker compose up -d
 ```
 
-The app should open automatically. If not, try http://localhost:8501 or follow the instructions in the `streamlit` command output.
+The app is now available at http://localhost:8080/.
+
+#### uv
+```shell
+uv run -- streamlit run app/app.py
+```
+The app should open automatically. If not, try http://localhost:8501/ or follow the instructions in the `streamlit` command output.
+
+---
 
 Select two Zeek versions to compare and optionally select some [Zeek packages](https://packages.zeek.org/) or provide your own custom script files to analyze. Hit `Compare >` and wait for the analyzer to finish, which may take around 20 seconds.
 
@@ -36,7 +41,7 @@ The app will now display the schema for each log stream, including changes betwe
     </td>
 </tr></table>
 
-### Library
+## Usage - Library
 
 Minimal example:
 
