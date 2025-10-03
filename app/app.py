@@ -19,7 +19,8 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from zeek_log_schema import MemoryFile, ParseError, RecordDeclaration, build_package_index, process_zeek_source
 
-ZEEK_REPO_URL = r"https://github.com/zeek/zeek.git"
+ZEEK_REPO_URL = "https://github.com/zeek/zeek.git"
+ZKG_REPO_URL = "https://github.com/zeek/packages.git"
 TMP_WORKING_DIR = Path(tempfile.gettempdir()) / 'zeek-schema-comparison-tool-streamlit'
 
 st.set_page_config(layout="wide")
@@ -55,6 +56,10 @@ def analyze_source(_repo: Repo, input_data: dict) -> Any:
 
     custom_scripts: list[list[MemoryFile]] = []
 
+    # Custom script code
+    if custom_script_code := input_data.get('custom_script_code', ""):
+        custom_scripts.append([MemoryFile(Path("custom_script"), BytesIO(custom_script_code.encode()))])
+
     # Load packages
     for zkg_repo, package_name in input_data.get('packages', []):
         custom_scripts.append(get_package_scripts(zkg_repo, package_name))
@@ -62,7 +67,7 @@ def analyze_source(_repo: Repo, input_data: dict) -> Any:
     # Unzip custom scripts
     custom_scripts.extend([
         _extract_uploaded_file(uf)
-        for uf in input_data.get('custom_scripts', [])
+        for uf in input_data.get('custom_script_zip', [])
     ])
 
     # Run analysis
@@ -189,7 +194,7 @@ def _generate_report__log_streams(old, new, stream_changes) -> None:
 
         with col2:
             if added:
-                st.write(f"{len(added)} output streams added in {meta_new['version']}")
+                st.write(f"{len(added)} output streams added until {meta_new['version']}")
                 st.code('\n'.join(map(lambda r: f'[+] {r}.log', sorted(added))))
             else:
                 st.write('No additions.')
@@ -419,7 +424,7 @@ def generate_report(repo: Repo, old: dict, new: dict, compare_fields: dict = Non
             except ParseError as e:
                 st.error(
                     f'**Error:** could not parse source files for {get_name_for_version(meta["version"])} {meta["version"]}."'
-                    f'This usually happens for malformed Zeek packages, or older source files that use a no longer supported ZeekScript syntax.'
+                    f'This usually happens for malformed Zeek packages, older source files that use a no longer supported ZeekScript syntax, or malformed custom scripts.'
                 )
 
                 with st.expander("Strack trace:"):
@@ -477,7 +482,7 @@ def main():
 
         # Build package index
         with st.spinner("Building package index..."):
-            zkg_index = build_zkg_index()
+            zkg_index = build_zkg_index(ZKG_REPO_URL)
 
         # Get list of unique Zeek versions
         zeek_versions_set = {t.name for t in repo.tags}
@@ -486,31 +491,36 @@ def main():
         if 'form_submitted' not in st.session_state:
             st.session_state.form_submitted = False
 
+        # Hide dev version toggle
+        with st.container(key="toggle_container"):
+            if not st.toggle("Include development versions", value=False):
+                zeek_version_options = list(filter(lambda v: v.startswith('v') and '-' not in v, zeek_versions))
+            else:
+                zeek_version_options = zeek_versions
+
+        # Version compare form
         with st.form("version_select_form"):
-
-            compare_fields = {}
-
-            # TODO: add toggle to hide prerelease versions
-
+            # Version select
             version_select_left, version_select_right = st.columns([1, 1])
             with version_select_left:
-                v_old = st.selectbox("Versions to compare", options=zeek_versions, key="zeek_version_old", index=zeek_versions.index('v7.0.0'))
+                v_old = st.selectbox("Versions to compare", options=zeek_version_options, key="zeek_version_old", index=zeek_version_options.index('v7.0.0'))
                 zkg_selected_old = st.multiselect("Additional packages (optional)", options=list(zkg_index.keys()), key="zkg_selected_old")
-                custom_scripts_old = st.file_uploader("Custom scripts (optional)", type=['zip'], accept_multiple_files=True, key="custom_scripts_old")
+                custom_scripts_zip_old = st.file_uploader("Custom scripts (optional, zip)", type=['zip'], accept_multiple_files=True, key="custom_scripts_old")
+                custom_script_content_old = st.text_area("Custom script content (optional)", key="custom_script_content_old")
 
             with version_select_right:
-                v_new = st.selectbox("New", label_visibility='hidden', options=zeek_versions, key="zeek_version_new", index=zeek_versions.index('v7.2.0'))
+                v_new = st.selectbox("New", label_visibility='hidden', options=zeek_version_options, key="zeek_version_new", index=zeek_version_options.index('v7.2.0'))
                 zkg_selected_new = st.multiselect("Additional packages (optional)", label_visibility="hidden", options=list(zkg_index.keys()), key="zkg_selected_new")
-                custom_scripts_new = st.file_uploader("Custom scripts (optional)", label_visibility="hidden", type=['zip'], accept_multiple_files=True, key="custom_scripts_new")
+                custom_scripts_zip_new = st.file_uploader("Custom scripts (optional, zip)", label_visibility="hidden", type=['zip'], accept_multiple_files=True, key="custom_scripts_new")
+                custom_script_content_new = st.text_area("Custom script content (optional)", label_visibility="hidden", key="custom_script_content_new")
+
+            # TODO: optionally allow user to select additional field to diff/compare (besides filename)
+            compare_fields = {'meta.filename': True}
 
             _, c2, _ = st.columns([2, 3, 2])
             with c2:
-                compare_fields['meta.filename'] = st.checkbox("Also check for source file changes", value=True)
-
                 if st.form_submit_button("Compare &rsaquo;", use_container_width=True):
                     st.session_state.form_submitted = True
-
-            # st.markdown("<style>.stCheckbox {margin-top: -7px;margin-bottom: -7px;}</style>", unsafe_allow_html=True)
 
     if version.parse(v_old) < version.parse('v2.6') or version.parse(v_new) < version.parse('v2.6'):
         st.error("Bro releases prior to **v2.6.0** are unsupported.", icon="😕")
@@ -519,13 +529,15 @@ def main():
     old = {
         'tag': v_old,
         'packages': [(zkg_index[package_name], package_name) for package_name in zkg_selected_old],
-        'custom_scripts': custom_scripts_old
+        'custom_script_zip': custom_scripts_zip_old,
+        'custom_script_code': custom_script_content_old,
     }
 
     new = {
         'tag': v_new,
         'packages': [(zkg_index[package_name], package_name) for package_name in zkg_selected_new],
-        'custom_scripts': custom_scripts_new
+        'custom_script_zip': custom_scripts_zip_new,
+        'custom_script_code': custom_script_content_new,
     }
 
     if st.session_state.form_submitted:

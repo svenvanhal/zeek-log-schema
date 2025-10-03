@@ -1,0 +1,1 @@
+redef record SSL::Info$version_num += { &log };
