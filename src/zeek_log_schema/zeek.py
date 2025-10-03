@@ -445,7 +445,8 @@ class ZeekScriptParser:
                 # SalesForce JA3 plugin uses a version check with @if statements that causes this error, which we handle later on.
                 pass
             else:  # Raise on others
-                raise ParseError(f"Script \"{path_or_buffer}\" has error: \"{_error}\"")
+                script_name = path_or_buffer if isinstance(path_or_buffer, Path) else "(custom script or package)"
+                raise ParseError(f"Script \"{script_name}\" has error: \"{_error}\"")
 
         # Return parsed script
         return script
