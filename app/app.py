@@ -30,7 +30,8 @@ def field_comparison_subset(f, compare_fields=None):
     subset = [f.name, f.type.name if isinstance(f.type, RecordDeclaration) else f.type]
 
     if compare_fields and compare_fields.get('meta.filename', False):
-        subset.append(f.meta['filename'])
+        if f.meta and 'filename' in f.meta:
+            subset.append(f.meta['filename'])
 
     return tuple(subset)
 
@@ -54,25 +55,23 @@ def analyze_source(_repo: Repo, input_data: dict) -> Any:
     # Determine script extension based on version
     ext = get_name_for_version(input_data['tag']).lower()
 
-    custom_scripts: list[list[MemoryFile]] = []
+    custom_scripts: list[MemoryFile] = []
 
     # Custom script code
     if custom_script_code := input_data.get('custom_script_code', ""):
-        custom_scripts.append([MemoryFile(Path("custom_script"), BytesIO(custom_script_code.encode()))])
+        custom_scripts.append(MemoryFile(Path("custom_script"), BytesIO(custom_script_code.encode())))
 
     # Load packages
     for zkg_repo, package_name in input_data.get('packages', []):
-        custom_scripts.append(get_package_scripts(zkg_repo, package_name))
+        custom_scripts.extend(get_package_scripts(zkg_repo, package_name))
 
     # Unzip custom scripts
-    custom_scripts.extend([
-        _extract_uploaded_file(uf)
-        for uf in input_data.get('custom_script_zip', [])
-    ])
+    for uf in input_data.get('custom_script_zip', []):
+        custom_scripts.extend(_extract_uploaded_file(uf))
 
     # Run analysis
     zeek_script_files = list((TMP_WORKING_DIR / 'scripts/').glob(f"**/*.{ext}"))
-    result = process_zeek_source(chain(zeek_script_files, *custom_scripts))
+    result = process_zeek_source(zeek_script_files + custom_scripts)
 
     # Gather and return results
     return result
@@ -232,11 +231,13 @@ def _print_zeek_log_diff(old, new, name, change_report, only_changes=False, coll
             case _:
                 name_fill_len += 4
 
-        _type = f.type
+        _type = f.type or "(type unknown)"
         if f.nested_type:
             _type += f"[{f.nested_type}]"
 
-        output += f"{f.name:<{name_fill_len}}{_type:<20}# {f.meta['filename']}"
+        filename = f.meta['filename'] if f.meta and 'filename' in f.meta else "(filename unknown)"
+
+        output += f"{f.name:<{name_fill_len}}{_type:<20}# {filename}"
 
         return output
 
@@ -493,7 +494,7 @@ def main():
 
         # Hide dev version toggle
         with st.container(key="toggle_container"):
-            if not st.toggle("Include development versions", value=False):
+            if not st.toggle("Show development versions", value=False):
                 zeek_version_options = list(filter(lambda v: v.startswith('v') and '-' not in v, zeek_versions))
             else:
                 zeek_version_options = zeek_versions

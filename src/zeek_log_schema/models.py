@@ -82,7 +82,7 @@ class RecordDeclaration:
 @dataclass
 class Field:
     name: str
-    type: str | RecordDeclaration
+    type: str | RecordDeclaration | None = None
     nested_type: str | tuple[str, ...] | None = None
     doc: str | None = None
     meta: dict[str, Any] | None = None
@@ -95,11 +95,13 @@ class Field:
     default: str | None = None
 
     def __str__(self):
-        _str = f"Field: {self.name} ({self.type}"
+        _str = f"Field: {self.name}"
 
-        if self.nested_type:
-            _str += f" + {self.nested_type}"
-        _str += ")"
+        if self.type:
+            if self.nested_type:
+                _str += f" ({self.type} + {self.nested_type})"
+            else:
+                _str += f" ({self.type})"
 
         if self.is_logged:
             _str += " &log;"

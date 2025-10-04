@@ -4,7 +4,7 @@ from copy import deepcopy
 from io import BytesIO
 from itertools import chain
 from pathlib import Path
-from typing import Generator, Iterable
+from typing import Any, Generator, Iterable
 
 from zeekscript import Script
 from zeekscript.node import Node
@@ -50,8 +50,8 @@ class ZeekScriptParser:
     def parse(self) -> dict:
 
         # Result stores
-        streams = []
-        records = []
+        streams: list[LogStream] = []
+        records: list[RecordDeclaration] = []
         types: dict[str, str] = {}
 
         # Current namespace
@@ -77,7 +77,11 @@ class ZeekScriptParser:
                     # Initially, we only analyzed declarations inside export {} blocks. However, some modules / plug-ins declare their records outside those blocks.
                     # Therefore, we just parse everything and filter for interesting declarations afterwards.
 
-                    if node.name() == 'redef_record_decl' or (
+                    # redef_record_decl: ($) => seq("redef", "record", choice(
+                    #   seq($.id, "+=", "{", repeat($.type_spec), "}", optional($.attr_list)),
+                    #   seq($.expr, choice("+=", "-="), "{", $.attr_list, "}"),
+                    # ), ";",)
+                    if (node.name() == 'redef_record_decl' and node.children[2].name() == "id") or (
                             # type_decl: $ => seq('type', $.id, ':', $.name(), optional($.attr_list), ';')
                             node.name() == 'type_decl' and node.children[3].children[0].type == 'record'
                     ):
@@ -85,6 +89,12 @@ class ZeekScriptParser:
                         # Record (re)declaration
                         if parsed_record := self._parse_record_declaration(node, current_namespace):
                             records.append(parsed_record)
+
+                    elif node.name() == "redef_record_decl" and node.children[2].name() == "expr":
+
+                        # Field (attribute) redef
+                        if redef_field_record := self._parse_field_redef(node, current_namespace):
+                            records.append(redef_field_record)
 
                     else:
 
@@ -133,7 +143,10 @@ class ZeekScriptParser:
 
         For reference:
             type_decl: $ => seq('type', $.id, ':', $.type, optional($.attr_list), ';')
-            redef_record_decl: $ => seq('redef', 'record', $.id, '+=', '{', repeat($.type_spec), '}', optional($.attr_list), ';'),
+            redef_record_decl: ($) => seq("redef", "record", choice(
+                seq($.id, "+=", "{", repeat($.type_spec), "}", optional($.attr_list)),
+                seq($.expr, choice("+=", "-="), "{", $.attr_list, "}"),
+            ), ";",)
 
         :param node: either a (type_decl ...) node whose $.type == 'record', or a (redef_record_decl ...) node
         :param namespace:
@@ -141,7 +154,7 @@ class ZeekScriptParser:
         """
 
         # Initialize record declaration dict
-        record_declaration = {
+        record_declaration: dict[str, Any] = {
             'meta': {
                 'filename': self.file
             },
@@ -207,7 +220,7 @@ class ZeekScriptParser:
         """
 
         # Initialize field declaration dict
-        field_declaration = {
+        field_declaration: dict[str, Any] = {
             'meta': {
                 'filename': self.file
             }
@@ -271,6 +284,36 @@ class ZeekScriptParser:
         # Create field and return
         field = Field(**field_declaration)
         return field
+
+    def _parse_field_redef(self, node: None, namespace: str = 'global') -> RecordDeclaration | None:
+        # redef_record_decl: ($) => seq("redef", "record", seq($.expr, choice("+=", "-="), "{", $.attr_list, "}"), ";",)
+
+        match node.children:
+            case (_, _, expr, choice, _, attr_list, *_):
+                # Ignore -=, it implies it was &log'ed earlier, so we should include it as (possibly) logged field in the output anyway
+                # Only &log supported for now (see https://docs.zeek.org/en/master/script-reference/statements.html#changing-attributes-of-record-fields)
+                if self.text(choice) == '+=' and '&log' in tuple(map(self.text, attr_list.nonerr_children)):
+
+                    match expr.nonerr_children:
+                        case record_node, _, field_node:
+                            record_name = normalize_identifier_with_namespace(self.text(record_node), namespace)
+                            field_name = self.text(field_node)
+
+                            return RecordDeclaration(
+                                name=record_name,
+                                is_redef=True,
+                                fields=[Field(
+                                    name=field_name,
+                                    type=None,  # type info not available here
+                                    is_logged=True,  # set &log; here
+                                    is_redef=True,  # implicit because of redef_record_decl
+                                    meta={'filename': self.file}
+                                )],
+                                meta={'filename': self.file},
+                            )
+
+        # There is only one happy path here, return None for everything else
+        return None
 
     def _parse_other_type_declaration(self, node: Node, namespace: str = 'global') -> tuple[str, tuple[str, ...] | str]:
         """
@@ -466,9 +509,27 @@ def merge_redefs(record_declaration: RecordDeclaration | None, redefs: list[Reco
     # Merge redefinitions
     record_declaration.meta['redefined_in'] = []
 
+    # Store existing field names
+    existing_field_names = set(map(lambda f: f.name, record_declaration.fields))
+
     for redef in redefs:
+
         # Merge fields
-        record_declaration.fields.extend(redef.fields)
+        for redef_field in redef.fields:
+            if redef_field.name in existing_field_names:
+                # Find existing field by name
+                existing_field: Field = next(filter(lambda f: f.name == redef_field.name, record_declaration.fields))
+
+                # Update attributes
+                existing_field.is_logged = existing_field.is_logged or redef_field.is_logged
+                existing_field.is_redef = existing_field.is_redef or redef_field.is_redef
+                existing_field.is_optional = existing_field.is_optional or redef_field.is_optional
+                existing_field.is_deprecated = existing_field.is_deprecated or redef_field.is_deprecated
+
+            else:
+                # Add field to existing record declaration
+                record_declaration.fields.append(redef_field)
+                existing_field_names.add(redef_field.name)
 
         # Merge metadata
         record_declaration.meta['redefined_in'].append(redef.meta['filename'])
