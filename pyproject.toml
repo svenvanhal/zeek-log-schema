@@ -13,3 +13,7 @@ dependencies = [
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+# Remove when this dependency is bumped upstream in zeekscript
+override-dependencies = ["tree-sitter-zeek>=0.2.10"]

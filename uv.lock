@@ -2,6 +2,9 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+overrides = [{ name = "tree-sitter-zeek", specifier = ">=0.2.10" }]
+
 [[package]]
 name = "altair"
 version = "5.5.0"
@@ -741,17 +744,17 @@ wheels = [
 
 [[package]]
 name = "tree-sitter-zeek"
-version = "0.2.3"
+version = "0.2.10"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cd/51/0769bd3671fa8e541e7ab4397df3642b161bdfdffd35a9d5385a4cd3766d/tree_sitter_zeek-0.2.3.tar.gz", hash = "sha256:1737107645c4df5b71dff2c768e7b4310c950226157a791acbe714bcdb6e4417", size = 204931, upload-time = "2025-03-04T13:35:25.618Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/9e/359cc5dabbdb0516e52dcdd62d01c103e98844293e197282099851903a37/tree_sitter_zeek-0.2.10.tar.gz", hash = "sha256:5f81ce3045d4266626ed92a04c3fa70059c9762df9381254664076024077989e", size = 241686, upload-time = "2025-10-03T11:55:30.815Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/de/22093c73fff068475a4e9f760d1b9d457ac80793a512e846509dee357dec/tree_sitter_zeek-0.2.3-cp39-abi3-macosx_10_9_x86_64.whl", hash = "sha256:d152434761ffdf720b2520e98e3f8eded43a6e1eb70721e647ef8d501f62e35f", size = 74750, upload-time = "2025-03-04T13:35:16.272Z" },
-    { url = "https://files.pythonhosted.org/packages/cb/a4/d3351562992a826ea4fede65876fc635089d8dbc48242a2e791900c239c9/tree_sitter_zeek-0.2.3-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:fd11ea68a47013fcd68f79d6de339b451a0bf894762cec52a9ce6c3a226ff579", size = 81694, upload-time = "2025-03-04T13:35:17.933Z" },
-    { url = "https://files.pythonhosted.org/packages/6b/06/82791e50e96b36606d08f8e03df62239d6d568fe20e06ed0eb54cb0e0a47/tree_sitter_zeek-0.2.3-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:71a89b9911d402e69b5b9bc9ef2988b9ce8d1ac0fd0928283811dcab73142aa3", size = 112046, upload-time = "2025-03-04T13:35:18.784Z" },
-    { url = "https://files.pythonhosted.org/packages/02/32/698619b126e131d187bab5ba3d0472fd157a63fd92165e153832301ca657/tree_sitter_zeek-0.2.3-cp39-abi3-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fe3628266be04d0d1b50f24b1f7f490aca04ce4783f1c838ad6c7c827ce6643b", size = 90411, upload-time = "2025-03-04T13:35:19.71Z" },
-    { url = "https://files.pythonhosted.org/packages/39/42/fb4c971300a2f7813988370092187fff61af5bb88430c83d6221f4ba1409/tree_sitter_zeek-0.2.3-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:ee45e420149e218d1d1247013db36169cffbb45f4c0ebe3e034e51862dc492c2", size = 85228, upload-time = "2025-03-04T13:35:22.014Z" },
-    { url = "https://files.pythonhosted.org/packages/92/42/f6eceeeb8d7df8c32c7a89f03639af2804429dcdfe61edd0b7da656aa6fb/tree_sitter_zeek-0.2.3-cp39-abi3-win_amd64.whl", hash = "sha256:3843ee5e5cf36cf0f1f80e3d82f582c5d6004a635270a2dbe8c4d52e7734d7d1", size = 80351, upload-time = "2025-03-04T13:35:23.398Z" },
-    { url = "https://files.pythonhosted.org/packages/a2/40/13e77f0ee2389c66366fb478344ca8bc7b0d8050e2ef1d32648d449e96b2/tree_sitter_zeek-0.2.3-cp39-abi3-win_arm64.whl", hash = "sha256:aaa088add177951f637e05756b4864edba54c11d3e0856a5706091e7f64c5c45", size = 77492, upload-time = "2025-03-04T13:35:24.744Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/fa/95be3dd27db16e67da256cc6068cf825fad284de564f7db46d389d384bf7/tree_sitter_zeek-0.2.10-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:c015b8448ca80efc41550a8df9801230686535095b6212a93b40ad132b7a033d", size = 78942, upload-time = "2025-10-03T11:55:23.347Z" },
+    { url = "https://files.pythonhosted.org/packages/01/b7/ed1da61184326041e29ec788a1b26d6097dad77ee546297e4bf6f74af6c1/tree_sitter_zeek-0.2.10-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:95f9b03b851afe03f6bb2b6580f6d778926773357ca12b46b5938558987ca01a", size = 85766, upload-time = "2025-10-03T11:55:24.58Z" },
+    { url = "https://files.pythonhosted.org/packages/88/04/385b298d8768b7c264044b1d7002cfddc171bb850d3b392769f0540159d9/tree_sitter_zeek-0.2.10-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cd5e5297dd1fcd9fda475225a798154fec3c28e8a29a9de73f82a0cbf1c6ac46", size = 120392, upload-time = "2025-10-03T11:55:25.435Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/67/6a3d0a2f52d1e4daaf701962757daf15d6e671c562ed29c980667450fb58/tree_sitter_zeek-0.2.10-cp310-abi3-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:66fa3707efc9b028f4512f18e5a034fb4c708ddaa4772c9db4feb9057076503d", size = 95441, upload-time = "2025-10-03T11:55:26.282Z" },
+    { url = "https://files.pythonhosted.org/packages/de/c7/b252761344abd77febc577063c08b002028bf6dde95b357850c8d0813148/tree_sitter_zeek-0.2.10-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:20ed3c84a09673a09a631894de015978751eb931c6ff2628756eb494ca4b59b4", size = 89372, upload-time = "2025-10-03T11:55:27.47Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/10/a1a2603fe61aa7a9ec6db25c96dc0e1580f78cdbbaeabe1da9f1fb5b80b7/tree_sitter_zeek-0.2.10-cp310-abi3-win_amd64.whl", hash = "sha256:d0d43e01d0b7975c2cc567d0b1bb6da73bb4ad473d74052630d316f32eb30194", size = 84285, upload-time = "2025-10-03T11:55:28.677Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/98/a2b521570b8b9746b20348cde510070c23580c9b525856cbeba7f2a89bde/tree_sitter_zeek-0.2.10-cp310-abi3-win_arm64.whl", hash = "sha256:d1f9b7904a01f5320f14bcd334516977353ac4674046d001b0281739a8e4388b", size = 81733, upload-time = "2025-10-03T11:55:29.54Z" },
 ]
 
 [[package]]
