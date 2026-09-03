@@ -5,15 +5,11 @@ description = "Zeek log schema generator using static analysis of ZeekScript sou
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "gitpython>=3.1.45",
-    "streamlit>=1.50.0",
-    "zeekscript>=1.3.2",
+    "gitpython>=3.1.61",
+    "streamlit>=1.62.0",
+    "zeekscript>=1.3.6",
 ]
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
 build-backend = "uv_build"
-
-[tool.uv]
-# Remove when this dependency is bumped upstream in zeekscript
-override-dependencies = ["tree-sitter-zeek>=0.2.10"]
